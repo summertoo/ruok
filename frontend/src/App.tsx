@@ -91,6 +91,10 @@ const currentAccount = useCurrentAccount();
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
+    timeout_years: 0,
+    timeout_months: 0,
+    timeout_days: 0,
+    timeout_hours: 24,
     encrypted_message: '',
     transfer_recipient: '',
     transfer_amount: 0,
@@ -824,14 +828,82 @@ const currentAccount = useCurrentAccount();
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.timeoutHours}</label>
-                    <input
-                      type="number"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      value={settings.timeout_threshold_hours}
-                      onChange={(e) =>
-                        setSettings({ ...settings, timeout_threshold_hours: Number(e.target.value) })
-                      }
-                    />
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">年</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center"
+                          value={settings.timeout_years}
+                          onChange={(e) => {
+                            const years = Number(e.target.value) || 0;
+                            setSettings({ 
+                              ...settings, 
+                              timeout_years: years,
+                              timeout_threshold_hours: years * 8760 + settings.timeout_months * 730 + settings.timeout_days * 24 + settings.timeout_hours
+                            });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">月</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="11"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center"
+                          value={settings.timeout_months}
+                          onChange={(e) => {
+                            const months = Math.min(11, Math.max(0, Number(e.target.value) || 0));
+                            setSettings({ 
+                              ...settings, 
+                              timeout_months: months,
+                              timeout_threshold_hours: settings.timeout_years * 8760 + months * 730 + settings.timeout_days * 24 + settings.timeout_hours
+                            });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">日</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center"
+                          value={settings.timeout_days}
+                          onChange={(e) => {
+                            const days = Math.min(30, Math.max(0, Number(e.target.value) || 0));
+                            setSettings({ 
+                              ...settings, 
+                              timeout_days: days,
+                              timeout_threshold_hours: settings.timeout_years * 8760 + settings.timeout_months * 730 + days * 24 + settings.timeout_hours
+                            });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">小时</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="23"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center"
+                          value={settings.timeout_hours}
+                          onChange={(e) => {
+                            const hours = Math.min(23, Math.max(0, Number(e.target.value) || 0));
+                            setSettings({ 
+                              ...settings, 
+                              timeout_hours: hours,
+                              timeout_threshold_hours: settings.timeout_years * 8760 + settings.timeout_months * 730 + settings.timeout_days * 24 + hours
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-2 text-sm text-gray-600">
+                      总计: {settings.timeout_threshold_hours} 小时
+                    </div>
                   </div>
 
                   <div>
