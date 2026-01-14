@@ -347,9 +347,19 @@ const currentAccount = useCurrentAccount();
       });
 
       console.log('=== 调用智能合约: update_settings ===');
-      await signAndExecuteTransaction({
+      const result = await signAndExecuteTransaction({
         transaction: txb as any,
       });
+      
+      // 保存交易记录
+      if (result && 'digest' in result) {
+        saveTransactionRecord(
+          'update',
+          `更新设置: ${settings.timeout_threshold_hours}小时超时`,
+          result.digest
+        );
+      }
+      
       await fetchUserStatus();
       await fetchBalance();
       setShowSettings(false);
@@ -393,9 +403,19 @@ const currentAccount = useCurrentAccount();
       });
 
       console.log('=== 调用智能合约: add_funds ===');
-      await signAndExecuteTransaction({
+      const result = await signAndExecuteTransaction({
         transaction: txb as any,
       });
+      
+      // 保存交易记录
+      if (result && 'digest' in result) {
+        saveTransactionRecord(
+          'add_funds',
+          `追加资金: ${settings.add_funds_amount} SUI`,
+          result.digest
+        );
+      }
+      
       await fetchUserStatus();
       await fetchBalance();
       setSettings({ ...settings, add_funds_amount: 0 });
@@ -530,9 +550,19 @@ const currentAccount = useCurrentAccount();
         ],
       });
       
-      await signAndExecuteTransaction({
+      const result = await signAndExecuteTransaction({
         transaction: txb as any,
       });
+      
+      // 保存交易记录
+      if (result && 'digest' in result) {
+        saveTransactionRecord(
+          'trigger',
+          '触发预设事务',
+          result.digest
+        );
+      }
+      
       await fetchBalance();
       alert('Trigger executed successfully!');
     } catch (error) {
@@ -592,9 +622,19 @@ const currentAccount = useCurrentAccount();
         ],
       });
 
-      await signAndExecuteTransaction({
+      const result = await signAndExecuteTransaction({
         transaction: txb as any,
       });
+      
+      // 保存交易记录
+      if (result && 'digest' in result) {
+        saveTransactionRecord(
+          'trigger',
+          '触发预设事务（外部）',
+          result.digest
+        );
+      }
+      
       await fetchBalance();
       await fetchAllUserStatuses();
       alert('Trigger executed successfully!');
