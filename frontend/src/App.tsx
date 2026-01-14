@@ -579,7 +579,7 @@ const currentAccount = useCurrentAccount();
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
-      console.log('  - registry_id:', getRegistryId(currentNetwork));
+      console.log('  - registry_id:', getRegistryId());
       console.log('  - clock_id:', CLOCK_ID);
       console.log('=====================================');
 
@@ -587,7 +587,7 @@ const currentAccount = useCurrentAccount();
         target,
         arguments: [
           txb.object(userStatusId),
-          txb.object(getRegistryId(currentNetwork)),
+          txb.object(getRegistryId()),
           txb.object(CLOCK_ID),
         ],
       });
