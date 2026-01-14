@@ -29,6 +29,40 @@ const translations = {
     addressPlaceholder: '输入 Sui 地址',
     amountPlaceholder: '输入转账金额',
     balance: '余额',
+    history: '历史',
+    historyTitle: '历史记录',
+    userList: '用户状态列表',
+    noRecords: '暂无用户状态记录',
+    myStatus: '我的状态',
+    otherUsers: '其他用户',
+    expired: '已到期',
+    normal: '正常',
+    balanceLabel: '余额',
+    triggerReward: '触发奖励',
+    remainingTimeLabel: '剩余时间',
+    timeoutExpired: '已超时',
+    triggerRewardText: '触发奖励',
+    triggerRewardDesc: '触发此状态可获得 {amount} SUI',
+    triggering: '触发中...',
+    triggerButton: '触发',
+    recipient: '收款人',
+    lastCheckIn: '最后签到',
+    currentSettings: '当前设置',
+    timeoutTime: '超时时间',
+    recipientAddressLabel: '收款地址',
+    encryptedMessageLabel: '加密消息',
+    userStatusSet: 'UserStatus 已设置，无法修改',
+    year: '年',
+    month: '月',
+    day: '日',
+    hour: '小时',
+    total: '总计',
+    checkInRecord: '签到确认',
+    createUserStatusRecord: '创建用户状态: {amount} SUI',
+    updateSettingsRecord: '更新设置: {hours}小时超时',
+    addFundsRecord: '追加资金: {amount} SUI',
+    triggerRecord: '触发预设事务',
+    triggerExternalRecord: '触发预设事务（外部）',
   },
   en: {
     title: 'Are You OK?',
@@ -53,6 +87,40 @@ const translations = {
     addressPlaceholder: 'Enter Sui address',
     amountPlaceholder: 'Enter transfer amount',
     balance: 'Balance',
+    history: 'History',
+    historyTitle: 'History',
+    userList: 'User Status List',
+    noRecords: 'No user status records',
+    myStatus: 'My Status',
+    otherUsers: 'Other Users',
+    expired: 'Expired',
+    normal: 'Normal',
+    balanceLabel: 'Balance',
+    triggerReward: 'Trigger Reward',
+    remainingTimeLabel: 'Remaining Time',
+    timeoutExpired: 'Timeout',
+    triggerRewardText: 'Trigger Reward',
+    triggerRewardDesc: 'Trigger this status to get {amount} SUI',
+    triggering: 'Triggering...',
+    triggerButton: 'Trigger',
+    recipient: 'Recipient',
+    lastCheckIn: 'Last Check-in',
+    currentSettings: 'Current Settings',
+    timeoutTime: 'Timeout Time',
+    recipientAddressLabel: 'Recipient Address',
+    encryptedMessageLabel: 'Encrypted Message',
+    userStatusSet: 'UserStatus is set and cannot be modified',
+    year: 'Year',
+    month: 'Month',
+    day: 'Day',
+    hour: 'Hour',
+    total: 'Total',
+    checkInRecord: 'Check-in confirmed',
+    createUserStatusRecord: 'Create user status: {amount} SUI',
+    updateSettingsRecord: 'Update settings: {hours} hours timeout',
+    addFundsRecord: 'Add funds: {amount} SUI',
+    triggerRecord: 'Trigger preset transaction',
+    triggerExternalRecord: 'Trigger preset transaction (external)',
   },
 };
 
@@ -219,7 +287,7 @@ const currentAccount = useCurrentAccount();
       
       // 保存交易记录
       if (result && 'digest' in result) {
-        saveTransactionRecord('check_in', '签到确认', result.digest);
+        saveTransactionRecord('check_in', t.checkInRecord, result.digest);
       }
       
       await fetchUserStatus();
@@ -282,7 +350,7 @@ const currentAccount = useCurrentAccount();
       if (result && 'digest' in result) {
         saveTransactionRecord(
           'create',
-          `创建用户状态: ${settings.transfer_amount} SUI`,
+          t.createUserStatusRecord.replace('{amount}', settings.transfer_amount.toString()),
           result.digest
         );
       }
@@ -359,7 +427,7 @@ const currentAccount = useCurrentAccount();
       if (result && 'digest' in result) {
         saveTransactionRecord(
           'update',
-          `更新设置: ${settings.timeout_threshold_hours}小时超时`,
+          t.updateSettingsRecord.replace('{hours}', settings.timeout_threshold_hours.toString()),
           result.digest
         );
       }
@@ -415,7 +483,7 @@ const currentAccount = useCurrentAccount();
       if (result && 'digest' in result) {
         saveTransactionRecord(
           'add_funds',
-          `追加资金: ${settings.add_funds_amount} SUI`,
+          t.addFundsRecord.replace('{amount}', settings.add_funds_amount.toString()),
           result.digest
         );
       }
@@ -562,7 +630,7 @@ const currentAccount = useCurrentAccount();
       if (result && 'digest' in result) {
         saveTransactionRecord(
           'trigger',
-          '触发预设事务',
+          t.triggerRecord,
           result.digest
         );
       }
@@ -634,7 +702,7 @@ const currentAccount = useCurrentAccount();
       if (result && 'digest' in result) {
         saveTransactionRecord(
           'trigger',
-          '触发预设事务（外部）',
+          t.triggerExternalRecord,
           result.digest
         );
       }
@@ -695,7 +763,7 @@ const currentAccount = useCurrentAccount();
         ⚙️ {t.settings}
       </button>
       <button className="history-btn" onClick={() => setShowHistory(true)}>
-        📜 历史
+        📜 {t.history}
       </button>
 
       <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 1000, display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -793,25 +861,25 @@ const currentAccount = useCurrentAccount();
                 // 已设置过 UserStatus，只显示信息
                 <div className="space-y-4">
                   <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="text-sm font-medium text-gray-700 mb-3">当前设置</div>
+                    <div className="text-sm font-medium text-gray-700 mb-3">{t.currentSettings}</div>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">超时时间:</span>
-                        <span className="font-medium">{(userStatus.timeout_threshold_ms / 3600000).toFixed(1)} 小时</span>
+                        <span className="text-gray-600">{t.timeoutTime}:</span>
+                        <span className="font-medium">{(userStatus.timeout_threshold_ms / 3600000).toFixed(1)} {t.hours}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">收款地址:</span>
+                        <span className="text-gray-600">{t.recipientAddressLabel}:</span>
                         <span className="font-medium text-right max-w-[200px] truncate" title={userStatus.transfer_recipient}>
                           {userStatus.transfer_recipient.slice(0, 10)}...{userStatus.transfer_recipient.slice(-8)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">余额:</span>
+                        <span className="text-gray-600">{t.balance}:</span>
                         <span className="font-medium">{(userStatus.stored_balance / 1_000_000_000).toFixed(4)} SUI</span>
                       </div>
                       {userStatus.encrypted_message && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">加密消息:</span>
+                          <span className="text-gray-600">{t.encryptedMessageLabel}:</span>
                           <span className="font-medium text-right max-w-[200px] truncate" title={userStatus.encrypted_message}>
                             {userStatus.encrypted_message.slice(0, 15)}...
                           </span>
@@ -820,7 +888,7 @@ const currentAccount = useCurrentAccount();
                     </div>
                   </div>
                   <div className="text-center text-sm text-gray-500">
-                    ⚠️ UserStatus 已设置，无法修改
+                    ⚠️ {t.userStatusSet}
                   </div>
                 </div>
               ) : (
@@ -830,7 +898,7 @@ const currentAccount = useCurrentAccount();
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t.timeoutHours}</label>
                     <div className="grid grid-cols-4 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">年</label>
+                        <label className="block text-xs text-gray-500 mb-1">{t.year}</label>
                         <input
                           type="number"
                           min="0"
@@ -847,7 +915,7 @@ const currentAccount = useCurrentAccount();
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">月</label>
+                        <label className="block text-xs text-gray-500 mb-1">{t.month}</label>
                         <input
                           type="number"
                           min="0"
@@ -865,7 +933,7 @@ const currentAccount = useCurrentAccount();
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">日</label>
+                        <label className="block text-xs text-gray-500 mb-1">{t.day}</label>
                         <input
                           type="number"
                           min="0"
@@ -883,7 +951,7 @@ const currentAccount = useCurrentAccount();
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-500 mb-1">小时</label>
+                        <label className="block text-xs text-gray-500 mb-1">{t.hour}</label>
                         <input
                           type="number"
                           min="0"
@@ -902,7 +970,7 @@ const currentAccount = useCurrentAccount();
                       </div>
                     </div>
                     <div className="mt-2 text-sm text-gray-600">
-                      总计: {settings.timeout_threshold_hours} 小时
+                      {t.total}: {settings.timeout_threshold_hours} {t.hours}
                     </div>
                   </div>
 
@@ -979,7 +1047,7 @@ const currentAccount = useCurrentAccount();
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-4 flex justify-between items-center">
-              <h5 className="text-white font-semibold text-lg">📜 历史记录</h5>
+              <h5 className="text-white font-semibold text-lg">📜 {t.historyTitle}</h5>
               <button
                 className="text-white hover:text-gray-200 text-2xl leading-none"
                 onClick={() => setShowHistory(false)}
@@ -995,7 +1063,7 @@ const currentAccount = useCurrentAccount();
                     true ? 'bg-white text-purple-600 border-b-2 border-purple-600' : 'bg-gray-50 text-gray-600'
                   }`}
                 >
-                  用户状态列表
+                  {t.userList}
                 </button>
               </div>
             </div>
@@ -1003,7 +1071,7 @@ const currentAccount = useCurrentAccount();
             <div className="p-6 overflow-y-auto max-h-[65vh]">
               {allUserStatuses.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">
-                  暂无用户状态记录
+                  {t.noRecords}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1038,7 +1106,7 @@ const currentAccount = useCurrentAccount();
                             </span>
                             <div>
                               <div className="font-medium text-gray-900">
-                                {isOwn ? '我的状态' : '其他用户'}
+                                {isOwn ? t.myStatus : t.otherUsers}
                               </div>
                               <div className="text-xs text-gray-500">
                                 {status.owner.slice(0, 6)}...{status.owner.slice(-4)}
@@ -1050,19 +1118,19 @@ const currentAccount = useCurrentAccount();
                               ? 'bg-red-100 text-red-700' 
                               : 'bg-green-100 text-green-700'
                           }`}>
-                            {isTimeout ? '⚠️ 已到期' : '✅ 正常'}
+                            {isTimeout ? '⚠️ ' + t.expired : '✅ ' + t.normal}
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 mb-3">
                           <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="text-xs text-gray-500 mb-1">余额</div>
+                            <div className="text-xs text-gray-500 mb-1">{t.balanceLabel}</div>
                             <div className="font-semibold text-gray-900">
                               {(status.stored_balance / 1_000_000_000).toFixed(4)} SUI
                             </div>
                           </div>
                           <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="text-xs text-gray-500 mb-1">触发奖励</div>
+                            <div className="text-xs text-gray-500 mb-1">{t.triggerReward}</div>
                             <div className="font-semibold text-yellow-600">
                               {(triggerReward / 1_000_000_000).toFixed(4)} SUI
                             </div>
@@ -1070,11 +1138,11 @@ const currentAccount = useCurrentAccount();
                         </div>
                         <div className="mb-3">
                           <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="text-xs text-gray-500 mb-1">剩余时间</div>
+                            <div className="text-xs text-gray-500 mb-1">{t.remainingTimeLabel}</div>
                             <div className={`font-semibold font-mono ${
                               isTimeout ? 'text-red-600' : 'text-gray-900'
                             }`}>
-                              {isTimeout ? '已超时' : formatRemainingTime(remainingTime)}
+                              {isTimeout ? t.timeoutExpired : formatRemainingTime(remainingTime)}
                             </div>
                           </div>
                         </div>
@@ -1084,10 +1152,10 @@ const currentAccount = useCurrentAccount();
                             <div className="flex items-center justify-between">
                               <div>
                                 <div className="text-sm font-medium text-yellow-800">
-                                  🎁 触发奖励
+                                  🎁 {t.triggerRewardText}
                                 </div>
                                 <div className="text-xs text-yellow-600">
-                                  触发此状态可获得 {(triggerReward / 1_000_000_000).toFixed(4)} SUI
+                                  {t.triggerRewardDesc.replace('{amount}', (triggerReward / 1_000_000_000).toFixed(4))}
                                 </div>
                               </div>
                               <button
@@ -1095,7 +1163,7 @@ const currentAccount = useCurrentAccount();
                                 onClick={() => handleExternalTrigger(status.id)}
                                 disabled={loading || triggeringIds.has(status.id)}
                               >
-                                {triggeringIds.has(status.id) ? '触发中...' : '触发'}
+                                {triggeringIds.has(status.id) ? t.triggering : t.triggerButton}
                               </button>
                             </div>
                           </div>
@@ -1103,12 +1171,12 @@ const currentAccount = useCurrentAccount();
 
                         <div className="text-xs text-gray-500 space-y-1">
                           <div>
-                            <span className="font-medium">收款人:</span>{' '}
+                            <span className="font-medium">{t.recipient}:</span>{' '}
                             {status.transfer_recipient.slice(0, 6)}...{status.transfer_recipient.slice(-4)}
                           </div>
                           <div>
-                            <span className="font-medium">最后签到:</span>{' '}
-                            {new Date(status.last_check_in_ms).toLocaleString('zh-CN')}
+                            <span className="font-medium">{t.lastCheckIn}:</span>{' '}
+                            {new Date(status.last_check_in_ms).toLocaleString(language === 'zh' ? 'zh-CN' : 'en-US')}
                           </div>
                         </div>
                       </div>
