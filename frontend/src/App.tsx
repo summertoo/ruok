@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
-import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, type UserStatusInfo, type RegistryFields, type UserStatusFields } from './services/contractService';
+import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, getCurrentNetwork, type UserStatusInfo, type RegistryFields, type UserStatusFields } from './services/contractService';
+import type { NetworkType } from './config/types';
+
 
 const translations = {
   zh: {
@@ -85,6 +86,8 @@ const currentAccount = useCurrentAccount();
   const [transactionHistory, setTransactionHistory] = useState<TransactionRecord[]>([]);
   const [allUserStatuses, setAllUserStatuses] = useState<UserStatusInfo[]>([]);
   const [countdowns, setCountdowns] = useState<Record<string, number>>({});
+  const [currentNetwork, setCurrentNetwork] = useState<NetworkType>(getCurrentNetwork());
+  const [triggeringIds, setTriggeringIds] = useState<Set<string>>(new Set());
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
@@ -98,7 +101,6 @@ const currentAccount = useCurrentAccount();
 
   const MODULE_NAME = 'ruok';
   const CLOCK_ID = '0x6';
-  const RegistryID = "0xa2b544f345711c5e662891cc0558832c30d9919e6eaf3ec4958a1a2da0c7cce2";
 
   useEffect(() => {
     if (currentAccount) {
@@ -515,7 +517,7 @@ const currentAccount = useCurrentAccount();
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
-      console.log('  - registry_id:', RegistryID);
+      console.log('  - registry_id:', getRegistryId());
       console.log('  - clock_id:', CLOCK_ID);
       console.log('=====================================');
       
@@ -523,7 +525,7 @@ const currentAccount = useCurrentAccount();
         target,
         arguments: [
           txb.object(userStatusId),
-          txb.object(RegistryID),
+          txb.object(getRegistryId()),
           txb.object(CLOCK_ID),
         ],
       });
@@ -566,6 +568,7 @@ const currentAccount = useCurrentAccount();
   const handleExternalTrigger = async (userStatusId: string) => {
     if (!currentAccount) return;
     setLoading(true);
+    setTriggeringIds(prev => new Set(prev).add(userStatusId));
 
     try {
       const txb = new Transaction();
@@ -576,19 +579,19 @@ const currentAccount = useCurrentAccount();
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
-      console.log('  - registry_id:', RegistryID);
+      console.log('  - registry_id:', getRegistryId(currentNetwork));
       console.log('  - clock_id:', CLOCK_ID);
       console.log('=====================================');
-      
+
       txb.moveCall({
         target,
         arguments: [
           txb.object(userStatusId),
-          txb.object(RegistryID),
+          txb.object(getRegistryId(currentNetwork)),
           txb.object(CLOCK_ID),
         ],
       });
-      
+
       await signAndExecuteTransaction({
         transaction: txb as any,
       });
@@ -600,6 +603,11 @@ const currentAccount = useCurrentAccount();
       alert('Trigger failed. Please try again.');
     } finally {
       setLoading(false);
+      setTriggeringIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userStatusId);
+        return newSet;
+      });
     }
   };
 
@@ -973,9 +981,9 @@ const currentAccount = useCurrentAccount();
                               <button
                                 className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                                 onClick={() => handleExternalTrigger(status.id)}
-                                disabled={loading}
+                                disabled={loading || triggeringIds.has(status.id)}
                               >
-                                {loading ? '处理中...' : '触发'}
+                                {triggeringIds.has(status.id) ? '触发中...' : '触发'}
                               </button>
                             </div>
                           </div>
