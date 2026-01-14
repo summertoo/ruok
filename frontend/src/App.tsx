@@ -84,6 +84,7 @@ const currentAccount = useCurrentAccount();
   const [balance, setBalance] = useState<number>(0);
   const [transactionHistory, setTransactionHistory] = useState<TransactionRecord[]>([]);
   const [allUserStatuses, setAllUserStatuses] = useState<UserStatusInfo[]>([]);
+  const [countdowns, setCountdowns] = useState<Record<string, number>>({});
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
@@ -107,6 +108,37 @@ const currentAccount = useCurrentAccount();
       fetchAllUserStatuses();
     }
   }, [currentAccount]);
+
+  // 倒计时更新逻辑
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentTime = Date.now();
+      let shouldRefresh = false;
+      
+      // 更新每个 UserStatus 的倒计时
+      const newCountdowns: Record<string, number> = {};
+      allUserStatuses.forEach(status => {
+        const elapsed = currentTime - status.last_check_in_ms;
+        const remaining = Math.max(0, status.timeout_threshold_ms - elapsed);
+        newCountdowns[status.id] = remaining;
+        
+        // 如果倒计时结束且之前还有剩余时间，需要刷新页面
+        if (remaining === 0 && countdowns[status.id] > 0) {
+          shouldRefresh = true;
+        }
+      });
+      
+      setCountdowns(newCountdowns);
+      
+      // 如果有倒计时结束，刷新页面
+      if (shouldRefresh) {
+        console.log('倒计时结束，刷新页面');
+        window.location.reload();
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [allUserStatuses, countdowns]);
 
   const fetchBalance = async () => {
     if (!currentAccount) return;
@@ -582,10 +614,14 @@ const currentAccount = useCurrentAccount();
   const formatRemainingTime = (ms: number): string => {
     const hours = Math.floor(ms / 3600000);
     const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    
+    const pad = (num: number) => num.toString().padStart(2, '0');
+    
     if (hours > 0) {
-      return `${hours}小时${minutes}分钟`;
+      return `${hours}:${pad(minutes)}:${pad(seconds)}`;
     }
-    return `${minutes}分钟`;
+    return `${minutes}:${pad(seconds)}`;
   };
 
   const remainingMs = getRemainingTime();
@@ -646,7 +682,7 @@ const currentAccount = useCurrentAccount();
               {isTimeout ? (
                 <span className="text-red-500">{t.timeout}</span>
               ) : (
-                <span>{t.remainingTime}: {remainingHours} {t.hours}</span>
+                <span className="font-mono">{t.remainingTime}: {formatRemainingTime(remainingMs)}</span>
               )}
             </div>
 
@@ -828,7 +864,7 @@ const currentAccount = useCurrentAccount();
                 <div className="space-y-4">
                   {allUserStatuses.map((status, index) => {
                     const isTimeout = isStatusTimeout(status);
-                    const remainingTime = getRemainingTimeForStatus(status);
+                    const remainingTime = countdowns[status.id] ?? getRemainingTimeForStatus(status);
                     const triggerReward = calculateTriggerReward(status.stored_balance);
                     const isOwn = currentAccount && status.owner.toLowerCase() === currentAccount.address.toLowerCase();
                     
@@ -890,7 +926,7 @@ const currentAccount = useCurrentAccount();
                         <div className="mb-3">
                           <div className="bg-gray-50 rounded-lg p-3">
                             <div className="text-xs text-gray-500 mb-1">剩余时间</div>
-                            <div className={`font-semibold ${
+                            <div className={`font-semibold font-mono ${
                               isTimeout ? 'text-red-600' : 'text-gray-900'
                             }`}>
                               {isTimeout ? '已超时' : formatRemainingTime(remainingTime)}
