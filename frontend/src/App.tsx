@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { SuiClient } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
+import { getPackageId, getRegistryId, getSuiClient } from './services/contractService';
 
 const translations = {
   zh: {
@@ -62,30 +64,45 @@ interface UserStatus {
   stored_balance: number;
 }
 
+interface TransactionRecord {
+  digest: string;
+  type: 'create' | 'check_in' | 'update' | 'add_funds' | 'trigger';
+  timestamp: number;
+  details: string;
+}
+
 function App() {
-  const currentAccount = useCurrentAccount();
-  const { mutate: signAndExecuteTransactionBlock } = useSignAndExecuteTransaction();
-  const [userStatus] = useState<UserStatus | null>(null);
+const currentAccount = useCurrentAccount();
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
+
+  const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
+  const [userStatusId, setUserStatusId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(false);
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');
   const [balance, setBalance] = useState<number>(0);
+  const [transactionHistory, setTransactionHistory] = useState<TransactionRecord[]>([]);
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
     encrypted_message: '',
     transfer_recipient: '',
     transfer_amount: 0,
+    add_funds_amount: 0,
   });
 
   const t = translations[language];
 
-  const PACKAGE_ID = '0x0';
   const MODULE_NAME = 'ruok';
+  const CLOCK_ID = '0x6';
+  const RegistryID = "0xa2b544f345711c5e662891cc0558832c30d9919e6eaf3ec4958a1a2da0c7cce2";
 
   useEffect(() => {
     if (currentAccount) {
       fetchBalance();
+      fetchUserStatus();
+      loadTransactionHistory();
     }
   }, [currentAccount]);
 
@@ -109,35 +126,62 @@ function App() {
     }
   };
 
+  const loadTransactionHistory = () => {
+    if (!currentAccount) return;
+    const stored = localStorage.getItem(`transaction_history_${currentAccount.address}`);
+    if (stored) {
+      setTransactionHistory(JSON.parse(stored));
+    }
+  };
+
+  const saveTransactionRecord = (type: TransactionRecord['type'], details: string, digest: string) => {
+    if (!currentAccount) return;
+    const record: TransactionRecord = {
+      digest,
+      type,
+      timestamp: Date.now(),
+      details,
+    };
+    const updated = [record, ...transactionHistory];
+    setTransactionHistory(updated);
+    localStorage.setItem(`transaction_history_${currentAccount.address}`, JSON.stringify(updated));
+  };
+
   const handleCheckIn = async () => {
-    if (!currentAccount || !userStatus) return;
+    if (!currentAccount || !userStatus || !userStatusId) return;
     setLoading(true);
 
     try {
-      const txb = new TransactionBlock();
-      const target = `${PACKAGE_ID}::${MODULE_NAME}::check_in`;
-      const userStatusId = 'user_status_id';
+      const txb = new Transaction();
+      txb.setSender(currentAccount.address);
+      const target = `${getPackageId()}::${MODULE_NAME}::check_in` as `${string}::${string}::${string}`;
       const clockId = '0x6';
-      
+
       console.log('=== 调用智能合约: check_in ===');
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
-      console.log('  - clock_id:', clockId);
+      console.log('  - clock_id:', CLOCK_ID);
       console.log('============================');
-      
+
       txb.moveCall({
         target,
         arguments: [
           txb.object(userStatusId),
-          txb.object(clockId),
+          txb.object(CLOCK_ID),
         ],
       });
 
-      const transactionBytes = await txb.build();
-      const transaction = btoa(String.fromCharCode(...transactionBytes));
-      console.log('Transaction bytes:', transaction);
-      await signAndExecuteTransactionBlock({ transaction });
+      console.log('=== 调用智能合约: check_in ===');
+      const result = await signAndExecuteTransaction({
+        transaction: txb,
+      });
+      
+      // 保存交易记录
+      if (result && 'digest' in result) {
+        saveTransactionRecord('check_in', '签到确认', result.digest);
+      }
+      
       await fetchUserStatus();
       await fetchBalance();
     } catch (error) {
@@ -153,14 +197,15 @@ function App() {
     setLoading(true);
 
     try {
-      const txb = new TransactionBlock();
-      const target = `${PACKAGE_ID}::${MODULE_NAME}::create_user_status`;
+      const txb = new Transaction();
+      txb.setSender(currentAccount.address);
+      const target = `${getPackageId()}::${MODULE_NAME}::create_user_status`;
       const timeoutMs = settings.timeout_threshold_hours * 3600000;
       const transferAmountMist = Math.floor(settings.transfer_amount * 1_000_000_000);
       const clockId = '0x6';
-      
+
       const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(transferAmountMist)]);
-      
+
       console.log('=== 调用智能合约: create_user_status ===');
       console.log('Target:', target);
       console.log('Arguments:');
@@ -168,9 +213,10 @@ function App() {
       console.log('  - encrypted_message:', settings.encrypted_message);
       console.log('  - transfer_recipient:', settings.transfer_recipient);
       console.log('  - payment_coin:', transferAmountMist, 'Mist');
-      console.log('  - clock_id:', clockId);
+      console.log('  - clock_id:', CLOCK_ID);
+      console.log('  - registry_id:', getRegistryId());
       console.log('===========================================');
-      
+
       txb.moveCall({
         target,
         arguments: [
@@ -178,14 +224,52 @@ function App() {
           txb.pure.string(settings.encrypted_message),
           txb.pure.address(settings.transfer_recipient),
           coin,
-          txb.object(clockId),
+          txb.object(CLOCK_ID),
+          txb.object(getRegistryId()),
         ],
       });
 
-      const transactionBytes = await txb.build();
-      const transaction = btoa(String.fromCharCode(...transactionBytes));
-      console.log('Transaction bytes:', transaction);
-      await signAndExecuteTransactionBlock({ transaction });
+      console.log('=== 调用智能合约: create_user_status ===');
+      console.log('准备签名交易...');
+      
+      const result = await signAndExecuteTransaction({
+        transaction: txb,
+      });
+      
+      console.log('交易签名成功:', result);
+      
+      // 保存交易记录
+      if (result && 'digest' in result) {
+        saveTransactionRecord(
+          'create',
+          `创建用户状态: ${settings.transfer_amount} SUI`,
+          result.digest
+        );
+      }
+
+      // 从交易结果中提取 UserStatus ID
+      if (result && 'digest' in result) {
+        const txResponse = await fetch('https://fullnode.testnet.sui.io', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'sui_getTransaction',
+            params: [result.digest],
+          }),
+        });
+        const txData = await txResponse.json();
+        if (txData.result && txData.result.effects && txData.result.effects.created) {
+          const userStatusObj = txData.result.effects.created.find(
+            (obj: any) => obj.owner && obj.owner.Shared
+          );
+          if (userStatusObj) {
+            setUserStatusId(userStatusObj.reference.objectId);
+          }
+        }
+      }
+
       await fetchUserStatus();
       await fetchBalance();
       setShowSettings(false);
@@ -198,15 +282,15 @@ function App() {
   };
 
   const handleUpdateSettings = async () => {
-    if (!currentAccount || !userStatus) return;
+    if (!currentAccount || !userStatus || !userStatusId) return;
     setLoading(true);
 
     try {
-      const txb = new TransactionBlock();
-      const target = `${PACKAGE_ID}::${MODULE_NAME}::update_settings`;
+      const txb = new Transaction();
+      txb.setSender(currentAccount.address);
+      const target = `${getPackageId()}::${MODULE_NAME}::update_settings` as `${string}::${string}::${string}`;
       const timeoutMs = settings.timeout_threshold_hours * 3600000;
-      const userStatusId = 'user_status_id';
-      
+
       console.log('=== 调用智能合约: update_settings ===');
       console.log('Target:', target);
       console.log('Arguments:');
@@ -215,7 +299,7 @@ function App() {
       console.log('  - encrypted_message:', settings.encrypted_message);
       console.log('  - transfer_recipient:', settings.transfer_recipient);
       console.log('===========================================');
-      
+
       txb.moveCall({
         target,
         arguments: [
@@ -226,10 +310,10 @@ function App() {
         ],
       });
 
-      const transactionBytes = await txb.build();
-      const transaction = btoa(String.fromCharCode(...transactionBytes));
-      console.log('Transaction bytes:', transaction);
-      await signAndExecuteTransactionBlock({ transaction });
+      console.log('=== 调用智能合约: update_settings ===');
+      await signAndExecuteTransaction({
+        transaction: txb,
+      });
       await fetchUserStatus();
       await fetchBalance();
       setShowSettings(false);
@@ -241,39 +325,171 @@ function App() {
     }
   };
 
-  const fetchUserStatus = async () => {
-    if (!currentAccount) return;
-  };
-
-  const handleTrigger = async () => {
-    if (!currentAccount || !userStatus) return;
+  const handleAddFunds = async () => {
+    if (!currentAccount || !userStatus || !userStatusId) return;
+    if (settings.add_funds_amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
     setLoading(true);
 
     try {
-      const txb = new TransactionBlock();
-      const target = `${PACKAGE_ID}::${MODULE_NAME}::trigger`;
-      const userStatusId = 'user_status_id';
-      const clockId = '0x6';
+      const txb = new Transaction();
+      txb.setSender(currentAccount.address);
+      const target = `${getPackageId()}::${MODULE_NAME}::add_funds`;
+      const addFundsMist = Math.floor(settings.add_funds_amount * 1_000_000_000);
+
+      const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(addFundsMist)]);
+
+      console.log('=== 调用智能合约: add_funds ===');
+      console.log('Target:', target);
+      console.log('Arguments:');
+      console.log('  - user_status_id:', userStatusId);
+      console.log('  - payment_coin:', addFundsMist, 'Mist');
+      console.log('=====================================');
+
+      txb.moveCall({
+        target,
+        arguments: [
+          txb.object(userStatusId),
+          coin,
+        ],
+      });
+
+      console.log('=== 调用智能合约: add_funds ===');
+      await signAndExecuteTransaction({
+        transaction: txb,
+      });
+      await fetchUserStatus();
+      await fetchBalance();
+      setSettings({ ...settings, add_funds_amount: 0 });
+      alert('Funds added successfully!');
+    } catch (error) {
+      console.error('Add funds failed:', error);
+      alert('Failed to add funds. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUserStatus = async () => {
+    if (!currentAccount) return;
+    
+    try {
+      const client = getSuiClient();
+      const registryId = getRegistryId();
+      const packageId = getPackageId();
       
+      console.log('正在获取 Registry，ID:', registryId);
+      console.log('Package ID:', packageId);
+      
+      // 1. 获取 Registry 对象
+      const registryObj = await client.getObject({
+        id: registryId,
+        options: {
+          showType: true,
+          showContent: true,
+        },
+      });
+      
+      console.log('Registry 响应:', registryObj);
+      
+      if (!registryObj.data || !registryObj.data.content) {
+        console.log('Registry not found');
+        setUserStatus(null);
+        setUserStatusId(null);
+        return;
+      }
+      
+      // 检查 content 的类型
+      if (registryObj.data.content.dataType !== 'moveObject') {
+        console.log('Registry is not a Move object');
+        setUserStatus(null);
+        setUserStatusId(null);
+        return;
+      }
+      
+      const fields = registryObj.data.content.fields;
+      const userStatusIds = fields.user_status_ids || [];
+      
+      // 2. 遍历所有 UserStatus ID，找到属于当前用户的
+      for (const id of userStatusIds) {
+        const userStatusObj = await client.getObject({
+          id,
+          options: {
+            showType: true,
+            showContent: true,
+          },
+        });
+        
+        if (userStatusObj.data && userStatusObj.data.content && userStatusObj.data.content.dataType === 'moveObject') {
+          const userStatusFields = userStatusObj.data.content.fields;
+          
+          // 检查是否属于当前用户
+          if (userStatusFields.owner.toLowerCase() === currentAccount.address.toLowerCase()) {
+            setUserStatusId(id);
+            
+            // 安全地获取 stored_balance
+            let storedBalance = 0;
+            if (userStatusFields.stored_balance) {
+              if (typeof userStatusFields.stored_balance === 'number') {
+                storedBalance = userStatusFields.stored_balance;
+              } else if (userStatusFields.stored_balance.fields?.value) {
+                storedBalance = Number(userStatusFields.stored_balance.fields.value);
+              } else if (userStatusFields.stored_balance.value) {
+                storedBalance = Number(userStatusFields.stored_balance.value);
+              }
+            }
+            
+            setUserStatus({
+              owner: userStatusFields.owner,
+              last_check_in_ms: Number(userStatusFields.last_check_in_ms),
+              timeout_threshold_ms: Number(userStatusFields.timeout_threshold_ms),
+              encrypted_message: userStatusFields.encrypted_message,
+              transfer_recipient: userStatusFields.transfer_recipient,
+              stored_balance: storedBalance,
+            });
+            return;
+          }
+        }
+      }
+      
+      // 没有找到属于当前用户的 UserStatus
+      setUserStatus(null);
+      setUserStatusId(null);
+      
+    } catch (error) {
+      console.error('Failed to fetch user status:', error);
+    }
+  };
+
+  const handleTrigger = async () => {
+    if (!currentAccount || !userStatus || !userStatusId) return;
+    setLoading(true);
+
+    try {
+      const txb = new Transaction();
+      txb.setSender(currentAccount.address);
+      const target = `${getPackageId()}::${MODULE_NAME}::trigger`;
+
       console.log('=== 调用智能合约: trigger ===');
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
-      console.log('  - clock_id:', clockId);
+      console.log('  - clock_id:', CLOCK_ID);
       console.log('=====================================');
       
       txb.moveCall({
         target,
         arguments: [
           txb.object(userStatusId),
-          txb.object(clockId),
+          txb.object(CLOCK_ID),
         ],
       });
-
-      const transactionBytes = await txb.build();
-      const transaction = btoa(String.fromCharCode(...transactionBytes));
-      console.log('Transaction bytes:', transaction);
-      await signAndExecuteTransactionBlock({ transaction });
+      
+      await signAndExecuteTransaction({
+        transaction: txb,
+      });
       await fetchBalance();
       alert('Trigger executed successfully!');
     } catch (error) {
@@ -305,6 +521,9 @@ function App() {
     <div className="min-h-screen bg-gray-100">
       <button className="settings-btn" onClick={() => setShowSettings(true)}>
         ⚙️ {t.settings}
+      </button>
+      <button className="history-btn" onClick={() => setShowHistory(true)}>
+        📜 历史
       </button>
 
       <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 1000, display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -449,6 +668,31 @@ function App() {
                   placeholder={t.messagePlaceholder}
                 />
               </div>
+
+              {userStatus && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">追加资金 (SUI)</label>
+                    <input
+                      type="number"
+                      step="0.000000001"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      value={settings.add_funds_amount}
+                      onChange={(e) =>
+                        setSettings({ ...settings, add_funds_amount: Number(e.target.value) })
+                      }
+                      placeholder="输入追加金额"
+                    />
+                  </div>
+                  <button
+                    className="w-full px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleAddFunds}
+                    disabled={loading}
+                  >
+                    {loading ? t.processing : '追加资金'}
+                  </button>
+                </>
+              )}
             </div>
             <div className="p-6 pt-0 flex gap-3">
               <button
@@ -464,6 +708,71 @@ function App() {
               >
                 {loading ? t.processing : userStatus ? t.updateSettings : t.createStatus}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHistory && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowHistory(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[80vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-4 flex justify-between items-center">
+              <h5 className="text-white font-semibold text-lg">📜 交易历史</h5>
+              <button
+                className="text-white hover:text-gray-200 text-2xl leading-none"
+                onClick={() => setShowHistory(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              {transactionHistory.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  暂无交易记录
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {transactionHistory.map((record, index) => (
+                    <div
+                      key={index}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium text-gray-900">
+                          {record.type === 'create' && '📝 创建'}
+                          {record.type === 'check_in' && '✅ 签到'}
+                          {record.type === 'update' && '⚙️ 更新'}
+                          {record.type === 'add_funds' && '💰 追加资金'}
+                          {record.type === 'trigger' && '🚀 触发'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(record.timestamp).toLocaleString('zh-CN')}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-700 mb-2">
+                        {record.details}
+                      </div>
+                      <div className="text-xs text-gray-500 break-all">
+                        <span className="font-medium">交易哈希:</span>{' '}
+                        <a
+                          href={`https://suiscan.xyz/testnet/tx/${record.digest}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          {record.digest}
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

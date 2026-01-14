@@ -41,6 +41,28 @@ body {
   transform: scale(1.05);
 }
 
+.history-btn {
+  position: fixed;
+  top: 20px;
+  left: 140px;
+  z-index: 1000;
+  background: white;
+  border: 2px solid #9C27B0;
+  color: #9C27B0;
+  padding: 10px 16px;
+  border-radius: 50px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.history-btn:hover {
+  background: #9C27B0;
+  color: white;
+  transform: scale(1.05);
+}
+
 .wallet-button {
   position: fixed !important;
   top: 20px !important;

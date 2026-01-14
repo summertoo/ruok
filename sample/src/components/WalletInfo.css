@@ -1,0 +1,261 @@
+/* WalletInfo 组件样式 */
+.wallet-info-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 钱包地址卡片 */
+.wallet-address-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 8px 16px;
+  transition: all 0.3s ease;
+}
+
+.wallet-address-card:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.wallet-icon {
+  font-size: 16px;
+  opacity: 0.8;
+}
+
+.wallet-address {
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Monaco', 'Menlo', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* 余额卡片容器 */
+.balance-cards {
+  display: flex;
+  gap: 12px;
+}
+
+/* 余额卡片基础样式 */
+.balance-card {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.balance-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.balance-card:hover::before {
+  opacity: 1;
+}
+
+.balance-card:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* SUI 卡片样式 */
+.sui-card {
+  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #2563EB 100%);
+  box-shadow: 0 8px 32px rgba(79, 70, 229, 0.3);
+}
+
+.sui-card:hover {
+  box-shadow: 0 12px 40px rgba(79, 70, 229, 0.4);
+}
+
+/* USDC 卡片样式 */
+.usdc-card {
+  background: linear-gradient(135deg, #059669 0%, #10B981 50%, #047857 100%);
+  box-shadow: 0 8px 32px rgba(5, 150, 105, 0.3);
+}
+
+.usdc-card:hover {
+  box-shadow: 0 12px 40px rgba(5, 150, 105, 0.4);
+}
+
+/* 卡片内容 */
+.balance-card-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 代币图标 */
+.token-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.balance-card:hover .token-icon {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: rotate(5deg) scale(1.1);
+}
+
+/* 余额信息 */
+.balance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 80px;
+}
+
+.token-name {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.balance-amount {
+  color: white;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* 加载动画 */
+.balance-loading {
+  width: 60px;
+  height: 12px;
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.3) 0%, 
+    rgba(255, 255, 255, 0.6) 50%, 
+    rgba(255, 255, 255, 0.3) 100%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .wallet-info-container {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .balance-cards {
+    justify-content: center;
+  }
+  
+  .balance-card-inner {
+    padding: 10px 14px;
+  }
+  
+  .token-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .balance-amount {
+    font-size: 13px;
+  }
+  
+  .wallet-address-card {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .balance-cards {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .balance-card-inner {
+    justify-content: center;
+  }
+}
+
+/* 深色主题适配 */
+@media (prefers-color-scheme: dark) {
+  .wallet-address-card {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .wallet-address-card:hover {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* 动画增强 */
+.balance-card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.sui-card {
+  animation-delay: 0.1s;
+}
+
+.usdc-card {
+  animation-delay: 0.2s;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 微交互效果 */
+.balance-card:active {
+  transform: translateY(-1px) scale(0.98);
+}
+
+.token-icon:active {
+  transform: rotate(5deg) scale(1.05);
+}
