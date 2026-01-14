@@ -832,6 +832,17 @@ const currentAccount = useCurrentAccount();
                     const triggerReward = calculateTriggerReward(status.stored_balance);
                     const isOwn = currentAccount && status.owner.toLowerCase() === currentAccount.address.toLowerCase();
                     
+                    // 调试日志
+                    console.log(`渲染 UserStatus ${index}:`, {
+                      id: status.id,
+                      stored_balance: status.stored_balance,
+                      stored_balance_SUI: (status.stored_balance / 1_000_000_000).toFixed(4),
+                      triggerReward: triggerReward,
+                      triggerReward_SUI: (triggerReward / 1_000_000_000).toFixed(4),
+                      isTimeout,
+                      remainingTime,
+                    });
+                    
                     return (
                       <div
                         key={index}
@@ -869,6 +880,14 @@ const currentAccount = useCurrentAccount();
                               {(status.stored_balance / 1_000_000_000).toFixed(4)} SUI
                             </div>
                           </div>
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-xs text-gray-500 mb-1">触发奖励</div>
+                            <div className="font-semibold text-yellow-600">
+                              {(triggerReward / 1_000_000_000).toFixed(4)} SUI
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mb-3">
                           <div className="bg-gray-50 rounded-lg p-3">
                             <div className="text-xs text-gray-500 mb-1">剩余时间</div>
                             <div className={`font-semibold ${
