@@ -75,7 +75,7 @@ public fun check_in(user_status: &mut UserStatus, clock: &Clock, ctx: &mut TxCon
 
 // 触发预设事务：转账给收款人，触发者获得奖励
 #[allow(lint(self_transfer))]
-public fun trigger(user_status: &mut UserStatus, clock: &Clock, ctx: &mut TxContext) {
+public fun trigger(user_status: UserStatus, registry: &mut Registry, clock: &Clock, ctx: &mut TxContext) {
     let current_time_ms = clock::timestamp_ms(clock);
     let elapsed_ms = current_time_ms - user_status.last_check_in_ms;
     assert!(elapsed_ms >= user_status.timeout_threshold_ms, E_NOT_TIMEOUT);
@@ -87,13 +87,37 @@ public fun trigger(user_status: &mut UserStatus, clock: &Clock, ctx: &mut TxCont
     let reward_amount = total_balance / TRIGGER_REWARD_PERCENT;
     let transfer_amount = total_balance - reward_amount;
 
+    // 从 Registry 中删除对应的 UserStatus ID
+    let user_status_id = object::id(&user_status);
+    let (found, idx) = vector::index_of(&registry.user_status_ids, &user_status_id);
+    if (found) {
+        vector::remove(&mut registry.user_status_ids, idx);
+    };
+
+    // 解构 UserStatus，提取余额和 ID
+    let UserStatus {
+        id,
+        owner: _,
+        last_check_in_ms: _,
+        timeout_threshold_ms: _,
+        encrypted_message: _,
+        transfer_recipient,
+        stored_balance: mut stored_balance,
+    } = user_status;
+
     // 转账给收款人
-    let transfer_coin = coin::from_balance(balance::split(&mut user_status.stored_balance, transfer_amount), ctx);
-    transfer::public_transfer(transfer_coin, user_status.transfer_recipient);
+    let transfer_coin = coin::from_balance(balance::split(&mut stored_balance, transfer_amount), ctx);
+    transfer::public_transfer(transfer_coin, transfer_recipient);
 
     // 给触发者奖励
-    let reward_coin = coin::from_balance(balance::withdraw_all(&mut user_status.stored_balance), ctx);
+    let reward_coin = coin::from_balance(balance::withdraw_all(&mut stored_balance), ctx);
     transfer::public_transfer(reward_coin, tx_context::sender(ctx));
+
+    // stored_balance 已被清空，显式销毁
+    balance::destroy_zero(stored_balance);
+
+    // 任务完成，删除 UserStatus 对象，允许用户创建新任务
+    object::delete(id);
 }
 
 // 更新设置

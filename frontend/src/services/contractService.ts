@@ -41,6 +41,19 @@ export interface UserStatusInfo {
   stored_balance: number;
 }
 
+export interface RegistryFields {
+  user_status_ids: string[];
+}
+
+export interface UserStatusFields {
+  owner: string;
+  last_check_in_ms: string;
+  timeout_threshold_ms: string;
+  encrypted_message: string;
+  transfer_recipient: string;
+  stored_balance: string | { fields?: { value?: string }; value?: string };
+}
+
 export async function getAllUserStatuses(): Promise<UserStatusInfo[]> {
   const client = getSuiClient();
   const registryId = getRegistryId();
@@ -63,7 +76,7 @@ export async function getAllUserStatuses(): Promise<UserStatusInfo[]> {
       return [];
     }
     
-    const fields = registryObj.data.content.fields;
+    const fields = registryObj.data.content.fields as unknown as RegistryFields;
     const userStatusIds = fields.user_status_ids || [];
     
     // 并行获取所有UserStatus的详细信息
@@ -78,7 +91,7 @@ export async function getAllUserStatuses(): Promise<UserStatusInfo[]> {
         });
         
         if (userStatusObj.data && userStatusObj.data.content && userStatusObj.data.content.dataType === 'moveObject') {
-          const userStatusFields = userStatusObj.data.content.fields;
+          const userStatusFields = userStatusObj.data.content.fields as unknown as UserStatusFields;
           
           // 调试：打印 stored_balance 的原始结构
           console.log(`UserStatus ${id} 的 stored_balance 原始数据:`, userStatusFields.stored_balance);

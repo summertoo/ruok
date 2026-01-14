@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
-import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, type UserStatusInfo } from './services/contractService';
+import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, type UserStatusInfo, type RegistryFields, type UserStatusFields } from './services/contractService';
 
 const translations = {
   zh: {
@@ -208,7 +208,7 @@ const currentAccount = useCurrentAccount();
 
       console.log('=== 调用智能合约: check_in ===');
       const result = await signAndExecuteTransaction({
-        transaction: txb,
+        transaction: txb as any,
       });
       
       // 保存交易记录
@@ -267,7 +267,7 @@ const currentAccount = useCurrentAccount();
       console.log('准备签名交易...');
       
       const result = await signAndExecuteTransaction({
-        transaction: txb,
+        transaction: txb as any,
       });
       
       console.log('交易签名成功:', result);
@@ -346,7 +346,7 @@ const currentAccount = useCurrentAccount();
 
       console.log('=== 调用智能合约: update_settings ===');
       await signAndExecuteTransaction({
-        transaction: txb,
+        transaction: txb as any,
       });
       await fetchUserStatus();
       await fetchBalance();
@@ -392,7 +392,7 @@ const currentAccount = useCurrentAccount();
 
       console.log('=== 调用智能合约: add_funds ===');
       await signAndExecuteTransaction({
-        transaction: txb,
+        transaction: txb as any,
       });
       await fetchUserStatus();
       await fetchBalance();
@@ -443,7 +443,7 @@ const currentAccount = useCurrentAccount();
         return;
       }
       
-      const fields = registryObj.data.content.fields;
+      const fields = registryObj.data.content.fields as unknown as RegistryFields;
       const userStatusIds = fields.user_status_ids || [];
       
       // 2. 遍历所有 UserStatus ID，找到属于当前用户的
@@ -457,7 +457,7 @@ const currentAccount = useCurrentAccount();
         });
         
         if (userStatusObj.data && userStatusObj.data.content && userStatusObj.data.content.dataType === 'moveObject') {
-          const userStatusFields = userStatusObj.data.content.fields;
+          const userStatusFields = userStatusObj.data.content.fields as unknown as UserStatusFields;
           
           // 检查是否属于当前用户
           if (userStatusFields.owner.toLowerCase() === currentAccount.address.toLowerCase()) {
@@ -515,6 +515,7 @@ const currentAccount = useCurrentAccount();
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
+      console.log('  - registry_id:', RegistryID);
       console.log('  - clock_id:', CLOCK_ID);
       console.log('=====================================');
       
@@ -522,12 +523,13 @@ const currentAccount = useCurrentAccount();
         target,
         arguments: [
           txb.object(userStatusId),
+          txb.object(RegistryID),
           txb.object(CLOCK_ID),
         ],
       });
       
       await signAndExecuteTransaction({
-        transaction: txb,
+        transaction: txb as any,
       });
       await fetchBalance();
       alert('Trigger executed successfully!');
@@ -574,6 +576,7 @@ const currentAccount = useCurrentAccount();
       console.log('Target:', target);
       console.log('Arguments:');
       console.log('  - user_status_id:', userStatusId);
+      console.log('  - registry_id:', RegistryID);
       console.log('  - clock_id:', CLOCK_ID);
       console.log('=====================================');
       
@@ -581,12 +584,13 @@ const currentAccount = useCurrentAccount();
         target,
         arguments: [
           txb.object(userStatusId),
+          txb.object(RegistryID),
           txb.object(CLOCK_ID),
         ],
       });
       
       await signAndExecuteTransaction({
-        transaction: txb,
+        transaction: txb as any,
       });
       await fetchBalance();
       await fetchAllUserStatuses();
