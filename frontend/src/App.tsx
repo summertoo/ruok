@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
-import { getPackageId, getRegistryId, getSuiClient } from './services/contractService';
+import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, type UserStatusInfo } from './services/contractService';
 
 const translations = {
   zh: {
@@ -83,6 +83,7 @@ const currentAccount = useCurrentAccount();
   const [language, setLanguage] = useState<'zh' | 'en'>('zh');
   const [balance, setBalance] = useState<number>(0);
   const [transactionHistory, setTransactionHistory] = useState<TransactionRecord[]>([]);
+  const [allUserStatuses, setAllUserStatuses] = useState<UserStatusInfo[]>([]);
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
@@ -103,6 +104,7 @@ const currentAccount = useCurrentAccount();
       fetchBalance();
       fetchUserStatus();
       loadTransactionHistory();
+      fetchAllUserStatuses();
     }
   }, [currentAccount]);
 
@@ -513,6 +515,79 @@ const currentAccount = useCurrentAccount();
     return Math.floor(remainingMs / 3600000);
   };
 
+  const fetchAllUserStatuses = async () => {
+    try {
+      const statuses = await getAllUserStatuses();
+      setAllUserStatuses(statuses);
+    } catch (error) {
+      console.error('Failed to fetch all user statuses:', error);
+    }
+  };
+
+  const handleExternalTrigger = async (userStatusId: string) => {
+    if (!currentAccount) return;
+    setLoading(true);
+
+    try {
+      const txb = new Transaction();
+      txb.setSender(currentAccount.address);
+      const target = `${getPackageId()}::${MODULE_NAME}::trigger`;
+
+      console.log('=== 调用智能合约: trigger (外部) ===');
+      console.log('Target:', target);
+      console.log('Arguments:');
+      console.log('  - user_status_id:', userStatusId);
+      console.log('  - clock_id:', CLOCK_ID);
+      console.log('=====================================');
+      
+      txb.moveCall({
+        target,
+        arguments: [
+          txb.object(userStatusId),
+          txb.object(CLOCK_ID),
+        ],
+      });
+      
+      await signAndExecuteTransaction({
+        transaction: txb,
+      });
+      await fetchBalance();
+      await fetchAllUserStatuses();
+      alert('Trigger executed successfully!');
+    } catch (error) {
+      console.error('Trigger failed:', error);
+      alert('Trigger failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateTriggerReward = (balance: number): number => {
+    return balance / 100;
+  };
+
+  const isStatusTimeout = (status: UserStatusInfo): boolean => {
+    const currentTime = Date.now();
+    const elapsed = currentTime - status.last_check_in_ms;
+    return elapsed >= status.timeout_threshold_ms;
+  };
+
+  const getRemainingTimeForStatus = (status: UserStatusInfo): number => {
+    const currentTime = Date.now();
+    const elapsed = currentTime - status.last_check_in_ms;
+    const remaining = status.timeout_threshold_ms - elapsed;
+    return Math.max(0, remaining);
+  };
+
+  const formatRemainingTime = (ms: number): string => {
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    if (hours > 0) {
+      return `${hours}小时${minutes}分钟`;
+    }
+    return `${minutes}分钟`;
+  };
+
   const remainingMs = getRemainingTime();
   const remainingHours = getRemainingHours();
   const isTimeout = remainingMs === 0;
@@ -719,11 +794,11 @@ const currentAccount = useCurrentAccount();
           onClick={() => setShowHistory(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[80vh]"
+            className="bg-white rounded-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-4 flex justify-between items-center">
-              <h5 className="text-white font-semibold text-lg">📜 交易历史</h5>
+              <h5 className="text-white font-semibold text-lg">📜 历史记录</h5>
               <button
                 className="text-white hover:text-gray-200 text-2xl leading-none"
                 onClick={() => setShowHistory(false)}
@@ -731,46 +806,114 @@ const currentAccount = useCurrentAccount();
                 ×
               </button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              {transactionHistory.length === 0 ? (
+            
+            <div className="border-b border-gray-200">
+              <div className="flex">
+                <button
+                  className={`flex-1 px-6 py-3 font-medium transition-colors ${
+                    true ? 'bg-white text-purple-600 border-b-2 border-purple-600' : 'bg-gray-50 text-gray-600'
+                  }`}
+                >
+                  用户状态列表
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[65vh]">
+              {allUserStatuses.length === 0 ? (
                 <div className="text-center text-gray-500 py-8">
-                  暂无交易记录
+                  暂无用户状态记录
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {transactionHistory.map((record, index) => (
-                    <div
-                      key={index}
-                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-medium text-gray-900">
-                          {record.type === 'create' && '📝 创建'}
-                          {record.type === 'check_in' && '✅ 签到'}
-                          {record.type === 'update' && '⚙️ 更新'}
-                          {record.type === 'add_funds' && '💰 追加资金'}
-                          {record.type === 'trigger' && '🚀 触发'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(record.timestamp).toLocaleString('zh-CN')}
-                        </span>
+                <div className="space-y-4">
+                  {allUserStatuses.map((status, index) => {
+                    const isTimeout = isStatusTimeout(status);
+                    const remainingTime = getRemainingTimeForStatus(status);
+                    const triggerReward = calculateTriggerReward(status.stored_balance);
+                    const isOwn = currentAccount && status.owner.toLowerCase() === currentAccount.address.toLowerCase();
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`border rounded-lg p-4 transition-colors ${
+                          isTimeout ? 'border-red-300 bg-red-50' : 'border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">
+                              {isOwn ? '👤' : '👥'}
+                            </span>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {isOwn ? '我的状态' : '其他用户'}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {status.owner.slice(0, 6)}...{status.owner.slice(-4)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            isTimeout 
+                              ? 'bg-red-100 text-red-700' 
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {isTimeout ? '⚠️ 已到期' : '✅ 正常'}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-xs text-gray-500 mb-1">余额</div>
+                            <div className="font-semibold text-gray-900">
+                              {(status.stored_balance / 1_000_000_000).toFixed(4)} SUI
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-3">
+                            <div className="text-xs text-gray-500 mb-1">剩余时间</div>
+                            <div className={`font-semibold ${
+                              isTimeout ? 'text-red-600' : 'text-gray-900'
+                            }`}>
+                              {isTimeout ? '已超时' : formatRemainingTime(remainingTime)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {isTimeout && status.stored_balance > 0 && (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="text-sm font-medium text-yellow-800">
+                                  🎁 触发奖励
+                                </div>
+                                <div className="text-xs text-yellow-600">
+                                  触发此状态可获得 {(triggerReward / 1_000_000_000).toFixed(4)} SUI
+                                </div>
+                              </div>
+                              <button
+                                className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                onClick={() => handleExternalTrigger(status.id)}
+                                disabled={loading}
+                              >
+                                {loading ? '处理中...' : '触发'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <div>
+                            <span className="font-medium">收款人:</span>{' '}
+                            {status.transfer_recipient.slice(0, 6)}...{status.transfer_recipient.slice(-4)}
+                          </div>
+                          <div>
+                            <span className="font-medium">最后签到:</span>{' '}
+                            {new Date(status.last_check_in_ms).toLocaleString('zh-CN')}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-700 mb-2">
-                        {record.details}
-                      </div>
-                      <div className="text-xs text-gray-500 break-all">
-                        <span className="font-medium">交易哈希:</span>{' '}
-                        <a
-                          href={`https://suiscan.xyz/testnet/tx/${record.digest}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:text-blue-700"
-                        >
-                          {record.digest}
-                        </a>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
