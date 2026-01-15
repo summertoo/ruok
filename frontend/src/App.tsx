@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
 import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, getCurrentNetwork, type UserStatusInfo, type RegistryFields, type UserStatusFields } from './services/contractService';
-import type { NetworkType } from './config/types';
+import { networkConfig } from './config/networkConfig';
 
 
 const translations = {
@@ -154,7 +154,6 @@ const currentAccount = useCurrentAccount();
   const [transactionHistory, setTransactionHistory] = useState<TransactionRecord[]>([]);
   const [allUserStatuses, setAllUserStatuses] = useState<UserStatusInfo[]>([]);
   const [countdowns, setCountdowns] = useState<Record<string, number>>({});
-  const [currentNetwork, setCurrentNetwork] = useState<NetworkType>(getCurrentNetwork());
   const [triggeringIds, setTriggeringIds] = useState<Set<string>>(new Set());
 
   const [settings, setSettings] = useState({
@@ -263,7 +262,6 @@ const currentAccount = useCurrentAccount();
       const txb = new Transaction();
       txb.setSender(currentAccount.address);
       const target = `${getPackageId()}::${MODULE_NAME}::check_in` as `${string}::${string}::${string}`;
-      const clockId = '0x6';
 
       console.log('=== 调用智能合约: check_in ===');
       console.log('Target:', target);
@@ -310,7 +308,6 @@ const currentAccount = useCurrentAccount();
       const target = `${getPackageId()}::${MODULE_NAME}::create_user_status`;
       const timeoutMs = settings.timeout_threshold_hours * 3600000;
       const transferAmountMist = Math.floor(settings.transfer_amount * 1_000_000_000);
-      const clockId = '0x6';
 
       const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(transferAmountMist)]);
 
@@ -357,7 +354,9 @@ const currentAccount = useCurrentAccount();
 
       // 从交易结果中提取 UserStatus ID
       if (result && 'digest' in result) {
-        const txResponse = await fetch('https://fullnode.testnet.sui.io', {
+        const network = getCurrentNetwork();
+        const networkUrl = networkConfig[network]?.url || networkConfig.testnet.url;
+        const txResponse = await fetch(networkUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -381,120 +380,11 @@ const currentAccount = useCurrentAccount();
       await fetchUserStatus();
       await fetchBalance();
       setShowSettings(false);
+      // 刷新页面以显示最新内容
+      window.location.reload();
     } catch (error) {
       console.error('Create user status failed:', error);
       alert('Failed to create user status. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateSettings = async () => {
-    if (!currentAccount || !userStatus || !userStatusId) return;
-    setLoading(true);
-
-    try {
-      const txb = new Transaction();
-      txb.setSender(currentAccount.address);
-      const target = `${getPackageId()}::${MODULE_NAME}::update_settings` as `${string}::${string}::${string}`;
-      const timeoutMs = settings.timeout_threshold_hours * 3600000;
-
-      console.log('=== 调用智能合约: update_settings ===');
-      console.log('Target:', target);
-      console.log('Arguments:');
-      console.log('  - user_status_id:', userStatusId);
-      console.log('  - timeout_threshold_ms:', timeoutMs);
-      console.log('  - encrypted_message:', settings.encrypted_message);
-      console.log('  - transfer_recipient:', settings.transfer_recipient);
-      console.log('===========================================');
-
-      txb.moveCall({
-        target,
-        arguments: [
-          txb.object(userStatusId),
-          txb.pure.u64(timeoutMs),
-          txb.pure.string(settings.encrypted_message),
-          txb.pure.address(settings.transfer_recipient),
-        ],
-      });
-
-      console.log('=== 调用智能合约: update_settings ===');
-      const result = await signAndExecuteTransaction({
-        transaction: txb as any,
-      });
-      
-      // 保存交易记录
-      if (result && 'digest' in result) {
-        saveTransactionRecord(
-          'update',
-          t.updateSettingsRecord.replace('{hours}', settings.timeout_threshold_hours.toString()),
-          result.digest
-        );
-      }
-      
-      await fetchUserStatus();
-      await fetchBalance();
-      setShowSettings(false);
-    } catch (error) {
-      console.error('Update settings failed:', error);
-      alert('Failed to update settings. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddFunds = async () => {
-    if (!currentAccount || !userStatus || !userStatusId) return;
-    if (settings.add_funds_amount <= 0) {
-      alert('Please enter a valid amount');
-      return;
-    }
-    setLoading(true);
-
-    try {
-      const txb = new Transaction();
-      txb.setSender(currentAccount.address);
-      const target = `${getPackageId()}::${MODULE_NAME}::add_funds`;
-      const addFundsMist = Math.floor(settings.add_funds_amount * 1_000_000_000);
-
-      const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(addFundsMist)]);
-
-      console.log('=== 调用智能合约: add_funds ===');
-      console.log('Target:', target);
-      console.log('Arguments:');
-      console.log('  - user_status_id:', userStatusId);
-      console.log('  - payment_coin:', addFundsMist, 'Mist');
-      console.log('=====================================');
-
-      txb.moveCall({
-        target,
-        arguments: [
-          txb.object(userStatusId),
-          coin,
-        ],
-      });
-
-      console.log('=== 调用智能合约: add_funds ===');
-      const result = await signAndExecuteTransaction({
-        transaction: txb as any,
-      });
-      
-      // 保存交易记录
-      if (result && 'digest' in result) {
-        saveTransactionRecord(
-          'add_funds',
-          t.addFundsRecord.replace('{amount}', settings.add_funds_amount.toString()),
-          result.digest
-        );
-      }
-      
-      await fetchUserStatus();
-      await fetchBalance();
-      setSettings({ ...settings, add_funds_amount: 0 });
-      alert('Funds added successfully!');
-    } catch (error) {
-      console.error('Add funds failed:', error);
-      alert('Failed to add funds. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -653,11 +543,6 @@ const currentAccount = useCurrentAccount();
     return Math.max(0, remaining);
   };
 
-  const getRemainingHours = () => {
-    const remainingMs = getRemainingTime();
-    return Math.floor(remainingMs / 3600000);
-  };
-
   const fetchAllUserStatuses = async () => {
     try {
       const statuses = await getAllUserStatuses();
@@ -724,7 +609,7 @@ const currentAccount = useCurrentAccount();
   };
 
   const calculateTriggerReward = (balance: number): number => {
-    return balance / 100;
+    return balance / 1000;
   };
 
   const isStatusTimeout = (status: UserStatusInfo): boolean => {
@@ -754,7 +639,6 @@ const currentAccount = useCurrentAccount();
   };
 
   const remainingMs = getRemainingTime();
-  const remainingHours = getRemainingHours();
   const isTimeout = remainingMs === 0;
 
   return (

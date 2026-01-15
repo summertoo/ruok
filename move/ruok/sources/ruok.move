@@ -11,9 +11,11 @@ use sui::dynamic_field as df;
 const E_NOT_OWNER: u64 = 0;
 const E_NOT_TIMEOUT: u64 = 1;
 const E_INSUFFICIENT_BALANCE: u64 = 2;
+const E_INSUFFICIENT_PAYMENT: u64 = 3;
 
-// 触发奖励比例（1%）
-const TRIGGER_REWARD_PERCENT: u64 = 100;
+// 触发奖励比例（0.1%）
+const TRIGGER_REWARD_PERCENT: u64 = 1000;
+const SERVICEDDR :address = @0xd73a6dc9ff5222aed93d45049767837030c74cba9835d8796c7acd311c12e0e2;
 
 // 用户状态共享对象
 public struct UserStatus has key {
@@ -51,6 +53,9 @@ public fun create_user_status(
     registry: &mut Registry,
     ctx: &mut TxContext,
 ) {
+    let payment_amount = coin::value(&payment);
+    assert!(payment_amount >= 10000, E_INSUFFICIENT_PAYMENT);
+
     let user_status = UserStatus {
         id: object::new(ctx),
         owner: tx_context::sender(ctx),
@@ -83,9 +88,10 @@ public fun trigger(user_status: UserStatus, registry: &mut Registry, clock: &Clo
     let total_balance = balance::value(&user_status.stored_balance);
     assert!(total_balance > 0, E_INSUFFICIENT_BALANCE);
 
-    // 计算触发奖励（1%）
+    // 计算触发奖励（0.1%）和平台手续费（0.1%）
     let reward_amount = total_balance / TRIGGER_REWARD_PERCENT;
-    let transfer_amount = total_balance - reward_amount;
+    let service_fee = total_balance / TRIGGER_REWARD_PERCENT;
+    let transfer_amount = total_balance - reward_amount - service_fee;
 
     // 从 Registry 中删除对应的 UserStatus ID
     let user_status_id = object::id(&user_status);
@@ -110,8 +116,12 @@ public fun trigger(user_status: UserStatus, registry: &mut Registry, clock: &Clo
     transfer::public_transfer(transfer_coin, transfer_recipient);
 
     // 给触发者奖励
-    let reward_coin = coin::from_balance(balance::withdraw_all(&mut stored_balance), ctx);
+    let reward_coin = coin::from_balance(balance::split(&mut stored_balance, reward_amount), ctx);
     transfer::public_transfer(reward_coin, tx_context::sender(ctx));
+
+    // 给平台手续费
+    let service_coin = coin::from_balance(balance::withdraw_all(&mut stored_balance), ctx);
+    transfer::public_transfer(service_coin, SERVICEDDR);
 
     // stored_balance 已被清空，显式销毁
     balance::destroy_zero(stored_balance);
