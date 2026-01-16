@@ -1,5 +1,8 @@
 Are You Okay? - A Decentralized Check-In Triggered Timed Transfer DApp
 
+link
+https://ruok3.vercel.app/
+
 Introduction
 
 "Are You Okay?" is an innovative decentralized application (DApp) built to redefine the security and flexibility of digital asset transfers. Centered on a "timed transfer + check-in verification" mechanism, it enables users to preset a digital asset transfer task. Once the user fails to update their status within the specified timeframe, the preset transfer can be triggered by any participant in the network, ensuring the asset reaches the intended recipient as planned. This DApp combines the transparency of blockchain technology with human-centric design, catering to scenarios that require reliable asset handover with conditional triggers.
@@ -43,3 +46,7 @@ The DApp addresses the pain point of "unreliable conditional asset transfer" in 
 5. Core Advantages
 
 Compared with traditional timed transfer tools, "Are You Okay?" DApp achieves decentralized execution without relying on centralized platforms or third-party trustees, eliminating the risk of platform downtime or moral hazards. The open trigger mechanism ensures high availability, and the simple check-in operation reduces user maintenance costs. It perfectly combines blockchain’s technical advantages with real-life needs, providing a reliable and flexible asset transfer solution.
+
+
+https://ruok3.vercel.app/
+
