@@ -732,7 +732,10 @@ const currentAccount = useCurrentAccount();
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bg-gradient-to-r from-green-500 to-blue-500 p-4 flex justify-between items-center">
-              <h5 className="text-white font-semibold text-lg">{t.settings}</h5>
+              <div className="flex items-center gap-3">
+                <h5 className="text-white font-semibold text-lg">{t.settings}</h5>
+                <span className="text-white text-xs bg-white bg-opacity-20 px-2 py-1 rounded">v0.0.1</span>
+              </div>
               <button
                 className="text-white hover:text-gray-200 text-2xl leading-none"
                 onClick={() => setShowSettings(false)}
