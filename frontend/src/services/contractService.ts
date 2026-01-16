@@ -1,9 +1,9 @@
 import { SuiClient } from '@mysten/sui/client';
 import type { NetworkType } from '../config/types';
-import { networkConfig } from '../config/networkConfig';
+import { networkConfig, getDefaultNetwork } from '../config/networkConfig';
 import { getContractConfig } from '../config/contractConfig';
 
-let currentNetwork: NetworkType = 'testnet';
+let currentNetwork: NetworkType = getDefaultNetwork();
 let suiClient = new SuiClient({
   url: networkConfig[currentNetwork]?.url || networkConfig.testnet.url,
 });

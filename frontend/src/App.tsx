@@ -216,7 +216,9 @@ const currentAccount = useCurrentAccount();
   const fetchBalance = async () => {
     if (!currentAccount) return;
     try {
-      const response = await fetch('https://fullnode.testnet.sui.io', {
+      const network = getCurrentNetwork();
+      const networkUrl = networkConfig[network]?.url || networkConfig.testnet.url;
+      const response = await fetch(networkUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
