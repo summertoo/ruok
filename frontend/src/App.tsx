@@ -57,6 +57,7 @@ const translations = {
     day: '日',
     hour: '小时',
     total: '总计',
+    tvl: '总锁仓量',
     checkInRecord: '签到确认',
     createUserStatusRecord: '创建用户状态: {amount} SUI',
     updateSettingsRecord: '更新设置: {hours}小时超时',
@@ -115,6 +116,7 @@ const translations = {
     day: 'Day',
     hour: 'Hour',
     total: 'Total',
+    tvl: 'TVL',
     checkInRecord: 'Check-in confirmed',
     createUserStatusRecord: 'Create user status: {amount} SUI',
     updateSettingsRecord: 'Update settings: {hours} hours timeout',
@@ -155,6 +157,7 @@ const currentAccount = useCurrentAccount();
   const [allUserStatuses, setAllUserStatuses] = useState<UserStatusInfo[]>([]);
   const [countdowns, setCountdowns] = useState<Record<string, number>>({});
   const [triggeringIds, setTriggeringIds] = useState<Set<string>>(new Set());
+  const [totalValueLocked, setTotalValueLocked] = useState<number>(0);
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
@@ -181,6 +184,8 @@ const currentAccount = useCurrentAccount();
       loadTransactionHistory();
       fetchAllUserStatuses();
     }
+    // 即使未连接钱包，也要获取 TVL
+    fetchAllUserStatuses();
   }, [currentAccount]);
 
   // 倒计时更新逻辑
@@ -550,6 +555,10 @@ const currentAccount = useCurrentAccount();
     try {
       const statuses = await getAllUserStatuses();
       setAllUserStatuses(statuses);
+      
+      // 计算 TVL：所有 UserStatus 的 stored_balance 之和
+      const total = statuses.reduce((sum, status) => sum + (status.stored_balance / 1_000_000_000), 0);
+      setTotalValueLocked(total);
     } catch (error) {
       console.error('Failed to fetch all user statuses:', error);
     }
@@ -654,6 +663,9 @@ const currentAccount = useCurrentAccount();
       </button>
 
       <div style={{ position: 'fixed', top: '20px', right: '20px', zIndex: 1000, display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="text-sm text-gray-600">
+          {t.tvl}: {totalValueLocked.toFixed(4)} SUI
+        </div>
         {currentAccount && (
           <div className="text-sm text-gray-600">
             {t.balance}: {balance.toFixed(4)} SUI
