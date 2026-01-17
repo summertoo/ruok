@@ -1,7 +1,8 @@
-Are You Okay? - A Decentralized Check-In Triggered Timed Transfer DApp
+Are You Okay? - A Decentralized Check-In Triggered Timed Transfer DApp On Sui Network
 
-link
 https://ruok3.vercel.app/
+
+![alt text](ruok01.png)
 
 Introduction
 
