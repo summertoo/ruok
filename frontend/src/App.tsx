@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ConnectButton, useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { Transaction } from '@mysten/sui/transactions';
-import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, getCurrentNetwork, type UserStatusInfo, type RegistryFields, type UserStatusFields } from './services/contractService';
-import { networkConfig } from './config/networkConfig';
+import { getPackageId, getRegistryId, getSuiClient, getAllUserStatuses, getCurrentNetwork, updateNetwork, type UserStatusInfo, type RegistryFields, type UserStatusFields } from './services/contractService';
+import { networkConfig, getDefaultNetwork, type NetworkType } from './config/networkConfig';
+import { NetworkSelector } from './components/NetworkSelector';
 
 
 const translations = {
@@ -158,6 +159,7 @@ const currentAccount = useCurrentAccount();
   const [countdowns, setCountdowns] = useState<Record<string, number>>({});
   const [triggeringIds, setTriggeringIds] = useState<Set<string>>(new Set());
   const [totalValueLocked, setTotalValueLocked] = useState<number>(0);
+  const [currentNetwork, setCurrentNetwork] = useState<NetworkType>(getDefaultNetwork());
 
   const [settings, setSettings] = useState({
     timeout_threshold_hours: 24,
@@ -172,6 +174,37 @@ const currentAccount = useCurrentAccount();
   });
 
   const t = translations[language];
+
+  const handleNetworkChange = async (network: NetworkType) => {
+    if (network === currentNetwork) return;
+    
+    try {
+      // 更新本地服务层的网络
+      updateNetwork(network);
+      setCurrentNetwork(network);
+      
+      // 清空本地状态，重新加载数据
+      setUserStatus(null);
+      setUserStatusId(null);
+      setBalance(0);
+      setAllUserStatuses([]);
+      setTotalValueLocked(0);
+      
+      // 重新获取数据
+      if (currentAccount) {
+        await fetchBalance();
+        await fetchUserStatus();
+        await fetchAllUserStatuses();
+      } else {
+        await fetchAllUserStatuses();
+      }
+      
+      console.log(`网络已切换到: ${network}`);
+    } catch (error) {
+      console.error('网络切换失败:', error);
+      alert('网络切换失败，请重试');
+    }
+  };
 
   const MODULE_NAME = 'ruok';
   const CLOCK_ID = '0x6';
@@ -671,6 +704,10 @@ const currentAccount = useCurrentAccount();
             {t.balance}: {balance.toFixed(4)} SUI
           </div>
         )}
+        <NetworkSelector
+          currentNetwork={currentNetwork}
+          onNetworkChange={handleNetworkChange}
+        />
         <button
           className="px-3 py-1 bg-white border border-gray-300 rounded text-sm hover:bg-gray-50"
           onClick={() => setLanguage(language === 'zh' ? 'en' : 'zh')}
